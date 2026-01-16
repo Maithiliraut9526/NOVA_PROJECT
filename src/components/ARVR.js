@@ -178,6 +178,7 @@
 // export default App;
 
 
+//code to apply
 import React, { useState, useEffect } from 'react';
 import { 
   Smartphone,
