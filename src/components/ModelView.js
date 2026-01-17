@@ -138,7 +138,6 @@ function CanvasWithControls({ model, onPartClick, cameraTarget }) {
 // Camera controller component
 function CameraController({ cameraTarget }) {
   const { camera } = useThree();
-  const controlsRef = React.useRef();
 
   React.useEffect(() => {
     if (cameraTarget) {
@@ -147,12 +146,6 @@ function CameraController({ cameraTarget }) {
         x: cameraTarget[0] * 2.5,
         y: cameraTarget[1] * 2.5,
         z: cameraTarget[2] * 2.5 + 3
-      };
-
-      const targetLookAt = {
-        x: cameraTarget[0],
-        y: cameraTarget[1],
-        z: cameraTarget[2]
       };
 
       const startPos = { ...camera.position };
