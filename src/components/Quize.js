@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Heart, Sparkles, RotateCcw, Eye, Wind, Activity, Clock, BarChart3, ShieldCheck } from 'lucide-react';
 
 const FlashcardSystem = () => {
-  const [studyData, setStudyData] = useState({ Heart: 0, Brain: 0, Eye: 0, Respiratory: 0 });
+  const [studyData, setStudyData] = useState({ Heart: 0, Brain: 0, Eye: 0, Respiratory: 0, Skeleton: 0 });
   const [currentOrgan, setCurrentOrgan] = useState(null);
+  const [difficulty, setDifficulty] = useState(null);
   const [flashcards, setFlashcards] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [flippedIndex, setFlippedIndex] = useState(null);
@@ -41,29 +42,46 @@ const FlashcardSystem = () => {
         { q: "Role of the Blood-Brain Barrier (BBB)?", a: "Highly selective semipermeable border that protects the brain from circulating toxins." }
       ],
       Eye: [
-        { q: "What is the function of the Retina?", a: "To receive light, convert it to neural signals, and send it to the brain." },
-        { q: "What are Photoreceptors?", a: "Specialized cells (Rods and Cones) that convert light energy into electrical signals." }
+        { q: "What is the function of the Retina?", a: "To receive light, convert it to neural signals, and send it to the brain via the optic nerve." },
+        { q: "What are Photoreceptors?", a: "Specialized cells (Rods and Cones) that convert light energy into electrical signals." },
+        { q: "What does the Iris control?", a: "The diameter of the pupil to regulate the amount of light entering the eye." },
+        { q: "What is the function of the Cornea?", a: "The transparent front part of the eye that refracts light to focus it on the retina." }
       ],
       Respiratory: [
         { q: "Where does gas exchange occur?", a: "In the Alveoli, the tiny air sacs at the end of the bronchioles." },
-        { q: "What is the primary muscle of inspiration?", a: "The Diaphragm." }
+        { q: "What is the primary muscle of inspiration?", a: "The Diaphragm." },
+        { q: "What is the trachea?", a: "A cartilaginous tube that connects the larynx to the bronchi and conducts air into the lungs." },
+        { q: "How many lobes does the left lung have?", a: "Two to three lobes, smaller than the right lung to accommodate the heart." }
+      ],
+      Skeleton: [
+        { q: "What is the function of the Skull?", a: "To protect the brain and support facial structures, composed of 22 bones." },
+        { q: "What does the Vertebral Column protect?", a: "The spinal cord and provides structural support for the entire body." },
+        { q: "What is the role of Ribs?", a: "To form a protective cage around vital organs including the heart and lungs." },
+        { q: "What is the Femur?", a: "The longest bone in the body, bearing the weight of the upper body during movement." }
       ]
     };
     return database[organ] || database['Heart'];
   };
 
   const generateAIContent = async () => {
-    if (!currentOrgan) return;
+    if (!currentOrgan || !difficulty) return;
     setIsGenerating(true);
     setTimerActive(false); 
     setFlippedIndex(null);
+    
+    const difficultyPrompts = {
+      simple: `Create 4 SIMPLE, beginner-friendly anatomy flashcards for the ${currentOrgan} system. Use easy vocabulary, basic facts, and straightforward concepts. JSON format: {"cards": [{"q": "...", "a": "..."}]}`,
+      medium: `Create 4 INTERMEDIATE anatomy flashcards for the ${currentOrgan} system. Include moderate medical terminology, functional relationships, and clinical relevance. JSON format: {"cards": [{"q": "...", "a": "..."}]}`,
+      hard: `Create 4 ADVANCED, high-yield anatomy flashcards for the ${currentOrgan} system. Use complex medical terminology, detailed mechanisms, clinical applications, and pathophysiology. JSON format: {"cards": [{"q": "...", "a": "..."}]}`
+    };
+    
     try {
       const serverBase = process.env.REACT_APP_SERVER_URL || 'http://localhost:4000';
       const response = await fetch(`${serverBase}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          userText: `Create 4 high-yield anatomy flashcards for the ${currentOrgan} system. JSON format: {"cards": [{"q": "...", "a": "..."}]}` 
+          userText: difficultyPrompts[difficulty]
         })
       });
       const result = await response.json();
@@ -81,9 +99,10 @@ const FlashcardSystem = () => {
   };
 
   const resetSession = () => {
-    setStudyData({ Heart: 0, Brain: 0, Eye: 0, Respiratory: 0 });
+    setStudyData({ Heart: 0, Brain: 0, Eye: 0, Respiratory: 0, Skeleton: 0 });
     setFlashcards([]);
     setCurrentOrgan(null);
+    setDifficulty(null);
     setTimerActive(false);
   };
 
@@ -109,11 +128,12 @@ const FlashcardSystem = () => {
                   { id: 'Heart', name: 'Cardiac Unit', icon: Heart, color: 'text-rose-500' },
                   { id: 'Brain', name: 'Neural Core', icon: Brain, color: 'text-purple-500' },
                   { id: 'Eye', name: 'Ocular Optic', icon: Eye, color: 'text-amber-500' },
-                  { id: 'Respiratory', name: 'Pulmonary', icon: Wind, color: 'text-blue-400' }
+                  { id: 'Respiratory', name: 'Pulmonary', icon: Wind, color: 'text-blue-400' },
+                  { id: 'Skeleton', name: 'Skeletal System', icon: Activity, color: 'text-white' }
                 ].map((organ) => (
                   <button
                     key={organ.id}
-                    onClick={() => { setCurrentOrgan(organ.id); setFlashcards([]); setTimerActive(false); }}
+                    onClick={() => { setCurrentOrgan(organ.id); setDifficulty(null); setFlashcards([]); setTimerActive(false); }}
                     className={`w-full p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group ${
                       currentOrgan === organ.id ? 'bg-slate-800 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'bg-slate-950/50 border-slate-900 hover:border-slate-700'
                     }`}
@@ -128,7 +148,34 @@ const FlashcardSystem = () => {
                   </button>
                 ))}
               </div>
-              <button onClick={generateAIContent} disabled={isGenerating || !currentOrgan} className="w-full mt-8 py-6 rounded-3xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-xl shadow-cyan-900/10">
+
+              {/* Difficulty Selection */}
+              {currentOrgan && (
+                <div className="mt-8">
+                  <h3 className="text-xs font-black mb-3 text-slate-500 uppercase tracking-widest">Difficulty Level</h3>
+                  <div className="space-y-2">
+                    {[
+                      { id: 'simple', label: 'Simple', color: 'from-green-600 to-green-500' },
+                      { id: 'medium', label: 'Medium', color: 'from-yellow-600 to-yellow-500' },
+                      { id: 'hard', label: 'Hard', color: 'from-red-600 to-red-500' }
+                    ].map((level) => (
+                      <button
+                        key={level.id}
+                        onClick={() => setDifficulty(level.id)}
+                        className={`w-full py-3 px-4 rounded-xl font-black uppercase text-xs tracking-widest transition-all border ${
+                          difficulty === level.id
+                            ? `bg-gradient-to-r ${level.color} border-white/30 shadow-lg text-white`
+                            : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700'
+                        }`}
+                      >
+                        {level.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button onClick={generateAIContent} disabled={isGenerating || !currentOrgan || !difficulty} className="w-full mt-8 py-6 rounded-3xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-xl shadow-cyan-900/10">
                 {isGenerating ? "Synthesizing..." : <><Sparkles size={18} /> Generate Intelligence</>}
               </button>
             </div>

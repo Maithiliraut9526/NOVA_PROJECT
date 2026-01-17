@@ -5,6 +5,7 @@
 import React, { useState, Suspense } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Stage, useGLTF, Float, Html } from '@react-three/drei';
+import * as THREE from 'three';
 import { 
   Heart, Brain, Wind, Eye, User, Search, X, 
   Activity, ChevronRight, Cpu, Layers, Volume2 
@@ -13,26 +14,65 @@ import {
 // Standard CDN Prefix to ensure GitHub files load correctly (Fixes Skeleton & Eye)
 const CDN_URL = "https://cdn.jsdelivr.net/gh/Maithiliraut9526/project-components@main";
 
-// --- HOTSPOT COMPONENT ---
+// Function to fetch anatomical information from Wikipedia
+const fetchAnatomicalInfo = async (bodyPart) => {
+  try {
+    const response = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bodyPart)}?redirect=true`
+    );
+    if (!response.ok) throw new Error('Failed to fetch');
+    const data = await response.json();
+    return data.extract || `Information about ${bodyPart} not found.`;
+  } catch (error) {
+    console.error('Error fetching info:', error);
+    return `Unable to fetch information about ${bodyPart}. Please try again.`;
+  }
+};
+
+// --- HOTSPOT COMPONENT (Labels Only on Model) ---
 const Hotspot = ({ position, label, info, onActive }) => {
+  const handleClick = async (e) => {
+    try {
+      e.stopPropagation();
+      if (onActive && typeof onActive === 'function') {
+        // Fetch info from Wikipedia if not already fetched
+        let fetchedInfo = info;
+        if (!info || info.startsWith('Unable to fetch')) {
+          fetchedInfo = await fetchAnatomicalInfo(label);
+        }
+        onActive(label, fetchedInfo);
+      }
+    } catch (error) {
+      console.error('Error in hotspot click handler:', error);
+    }
+  };
+
   return (
-    <Html position={position} center>
-      <div className="flex items-center gap-3 pointer-events-auto">
-        <div className="group relative flex items-center justify-center cursor-pointer flex-shrink-0">
-          <div className="absolute w-4 h-4 bg-cyan-400 rounded-full animate-ping opacity-75"></div>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onActive(label, info);
-            }}
-            className="relative w-4 h-4 bg-cyan-500 border-2 border-white rounded-full shadow-[0_0_15px_rgba(6,182,212,0.8)] hover:scale-125 transition-transform"
-          />
+    <group position={position}>
+      <Html 
+        position={[0, 0, 0]} 
+        center 
+        distanceFactor={0.45}
+        occlude={false}
+        scale={1}
+      >
+        <div
+          onClick={handleClick}
+          className="cursor-pointer pointer-events-auto select-none"
+          style={{
+            textShadow: '0 0 30px rgba(0, 212, 255, 1), 0 0 50px rgba(0, 212, 255, 0.8), 0 0 80px rgba(0, 212, 255, 0.5)',
+            filter: 'drop-shadow(0 0 15px rgba(0, 212, 255, 0.9))',
+          }}
+        >
+          <span className="text-[56px] md:text-[76px] lg:text-[120px] text-cyan-100 font-black tracking-wider uppercase whitespace-nowrap bg-gradient-to-b from-black/96 to-black/90 px-16 py-8 rounded-2xl border-4 border-cyan-300/100 shadow-2xl hover:bg-black/85 transition-colors" style={{
+            textShadow: '0 0 40px rgba(0, 212, 255, 1), 0 0 25px rgba(0, 212, 255, 0.9), 0 0 15px rgba(0, 212, 255, 0.8)',
+            letterSpacing: '0.15em',
+          }}>
+            {label}
+          </span>
         </div>
-        <span className="text-[11px] text-cyan-300 font-bold tracking-widest uppercase whitespace-nowrap bg-black/60 px-2 py-1 rounded border border-cyan-500/40">
-          {label}
-        </span>
-      </div>
-    </Html>
+      </Html>
+    </group>
   );
 };
 
@@ -56,8 +96,22 @@ function AnatomicalModel({ url, showHotspots, hotspots, onPartClick, cameraTarge
 
 // Canvas component with camera controls
 function CanvasWithControls({ model, onPartClick, cameraTarget }) {
+  const handleCanvasClick = (e) => {
+    try {
+      // Only handle clicks on the canvas background, not on hotspots
+      if (e.object && e.object.userData && e.object.userData.isHotspot) {
+        return;
+      }
+    } catch (error) {
+      console.error('Canvas click error:', error);
+    }
+  };
+
   return (
-    <Canvas camera={{ position: [0, 0, 5], fov: 35 }}>
+    <Canvas 
+      camera={{ position: [0, 0, 5], fov: 35 }}
+      onClick={handleCanvasClick}
+    >
       <Suspense fallback={<Html center className="text-cyan-500 font-mono text-[10px]">SYNCING_DATA...</Html>}>
           <CameraController cameraTarget={cameraTarget} />
           <Stage environment="city" intensity={0.5} contactShadow={false}>
@@ -338,10 +392,10 @@ const ModelDashboard = () => {
       color: "text-cyan-400",
       glb: `${CDN_URL}/respiratory_system.glb`,
       hotspots: [
-        { pos: [0, 2.5, 0], name: "Trachea", info: "The trachea is a cartilaginous tube that connects the larynx to the bronchi. It conducts air into the lungs and prevents collapse." },
-        { pos: [0.8, 1.5, 0.3], name: "Left Lung", info: "The left lung is smaller than the right to accommodate the heart. It contains approximately 2-3 lobes and is responsible for gas exchange." },
-        { pos: [-0.8, 1.5, 0.3], name: "Right Lung", info: "The right lung is larger with 3 lobes. It receives deoxygenated blood and facilitates oxygen-carbon dioxide exchange." },
-        { pos: [0, -0.8, 0], name: "Diaphragm", info: "The diaphragm is the primary muscle of respiration. Its contraction increases thoracic volume, drawing air into the lungs." },
+        { pos: [0.2, 2.2, 0.2], name: "Trachea", info: "" },
+        { pos: [1.2, 1.2, 0], name: "Left Lung", info: "" },
+        { pos: [-1.2, 1.2, 0], name: "Right Lung", info: "" },
+        { pos: [0, -0.5, 0], name: "Diaphragm", info: "" },
       ]
     },
     {
@@ -356,10 +410,10 @@ const ModelDashboard = () => {
       color: "text-purple-500",
       glb: `${CDN_URL}/brain_diagram.glb`,
       hotspots: [
-        { pos: [0.5, 1.5, 0.5], name: "Frontal Lobe", info: "The frontal lobe controls executive functions, decision-making, motor control, and personality." },
-        { pos: [-0.5, 1.5, 0.5], name: "Parietal Lobe", info: "The parietal lobe processes sensory information including touch, temperature, and pain." },
-        { pos: [0.5, 0.3, 0.5], name: "Temporal Lobe", info: "The temporal lobe handles memory formation, auditory processing, and emotion regulation." },
-        { pos: [-0.5, 0.3, 0.5], name: "Occipital Lobe", info: "The occipital lobe is the visual processing center, interpreting light, color, and movement." },
+        { pos: [0.6, 0.8, 0.1], name: "Frontal Lobe", info: "" },
+        { pos: [-0.6, 0.8, 0.1], name: "Parietal Lobe", info: "" },
+        { pos: [0.6, -0.4, 0], name: "Temporal Lobe", info: "" },
+        { pos: [-0.6, -0.4, 0], name: "Occipital Lobe", info: "" },
       ]
     },
     {
@@ -374,10 +428,10 @@ const ModelDashboard = () => {
       color: "text-rose-500",
       glb: `${CDN_URL}/heart.glb`,
       hotspots: [
-        { pos: [0.3, 1, 0], name: "Right Atrium", info: "The right atrium receives deoxygenated blood from the superior and inferior vena cava." },
-        { pos: [-0.3, 1, 0], name: "Left Atrium", info: "The left atrium receives oxygen-rich blood from the pulmonary veins." },
-        { pos: [0.3, 0, 0], name: "Right Ventricle", info: "The right ventricle pumps deoxygenated blood to the lungs via the pulmonary artery." },
-        { pos: [-0.3, 0, 0], name: "Left Ventricle", info: "The left ventricle is the most muscular chamber, pumping oxygenated blood to the entire body via the aorta." },
+        { pos: [0.6, 0.8, 0.15], name: "Right Atrium", info: "" },
+        { pos: [-0.6, 0.8, 0.15], name: "Left Atrium", info: "" },
+        { pos: [0.6, -0.3, 0.1], name: "Right Ventricle", info: "" },
+        { pos: [-0.6, -0.3, 0.1], name: "Left Ventricle", info: "" },
       ]
     },
     {
@@ -392,10 +446,10 @@ const ModelDashboard = () => {
       color: "text-amber-500",
       glb: `${CDN_URL}/realistic_human_eye.glb`,
       hotspots: [
-        { pos: [0, 1.2, 0.3], name: "Cornea", info: "The cornea is the transparent front part of the eye that refracts light to focus it on the retina." },
-        { pos: [0, 0.8, 0.5], name: "Iris", info: "The iris controls the diameter of the pupil to regulate the amount of light entering the eye." },
-        { pos: [0, 0.8, 0.8], name: "Pupil", info: "The pupil is the opening through which light enters the eye. It adjusts in size based on lighting conditions." },
-        { pos: [0, -0.1, 0.3], name: "Retina", info: "The retina contains photoreceptor cells (rods and cones) that convert light into electrical signals." },
+        { pos: [0.2, 0.8, 0.2], name: "Cornea", info: "" },
+        { pos: [0.2, 0.4, 0.3], name: "Iris", info: "" },
+        { pos: [0.2, 0.4, 0.4], name: "Pupil", info: "" },
+        { pos: [0.2, -0.3, 0.1], name: "Retina", info: "" },
       ]
     },
     {
@@ -410,10 +464,10 @@ const ModelDashboard = () => {
       color: "text-blue-400",
       glb: `${CDN_URL}/skeleton.glb`,
       hotspots: [
-        { pos: [0, 3, 0], name: "Skull", info: "The skull is a rigid structure composed of 22 bones that protect the brain and support facial structures." },
-        { pos: [0, 1.8, 0.5], name: "Vertebral Column", info: "The vertebral column protects the spinal cord and provides structural support for the entire body." },
-        { pos: [0.6, 0.5, 0.3], name: "Ribs", info: "The ribs form a protective cage around vital organs including the heart and lungs." },
-        { pos: [0.4, -0.8, 0.2], name: "Femur", info: "The femur is the longest bone in the body, bearing the weight of the upper body during movement." },
+        { pos: [0, 3, 0], name: "Skull", info: "" },
+        { pos: [0, 1.8, 0.5], name: "Vertebral Column", info: "" },
+        { pos: [0.6, 0.5, 0.3], name: "Ribs", info: "" },
+        { pos: [0.4, -0.8, 0.2], name: "Femur", info: "" },
       ]
     }
   ];
@@ -508,13 +562,13 @@ const ModelDashboard = () => {
                 <h2 className="text-2xl md:text-4xl lg:text-6xl font-black text-white mb-2 md:mb-4 uppercase tracking-tighter italic leading-none">{selectedModel.name}</h2>
                 <p className="text-xs md:text-sm text-slate-300 font-light leading-relaxed mb-4 md:mb-6 border-l-2 border-cyan-500/30 pl-4">{selectedModel.longDescription}</p>
 
-                {/* ACTIVE PART INFO */}
+                {/* ACTIVE PART INFO - LARGE FORMAT */}
                 {activeInfo && (
-                  <div className="bg-cyan-500/10 border border-cyan-500/40 rounded-2xl md:rounded-3xl p-4 md:p-6 mb-4 md:mb-6">
-                    <h4 className="text-[8px] md:text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
-                      <Volume2 size={12} className="md:w-4 md:h-4" /> {activeInfo.label}
+                  <div className="bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border-2 border-cyan-500/60 rounded-3xl md:rounded-4xl p-6 md:p-8 lg:p-10 mb-6 md:mb-8 shadow-2xl">
+                    <h4 className="text-sm md:text-lg lg:text-xl font-black text-cyan-300 uppercase tracking-widest mb-4 md:mb-6 flex items-center gap-3">
+                      <Volume2 size={18} className="md:w-6 md:h-6" /> {activeInfo.label}
                     </h4>
-                    <p className="text-xs md:text-sm text-slate-200 leading-relaxed">
+                    <p className="text-sm md:text-base lg:text-lg text-slate-100 leading-relaxed md:leading-loose font-medium whitespace-pre-wrap">
                       {activeInfo.info}
                     </p>
                   </div>
@@ -613,6 +667,8 @@ const ModelDashboard = () => {
 };
 
 export default ModelDashboard;
+
+
 
 
 
